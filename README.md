@@ -53,9 +53,9 @@ LSTM treats each transaction as a timestep sequence, capturing temporal patterns
 ## Tech Stack
 
 - Python, Pandas, NumPy
-- scikit-learn (LR, RF, DT, SVM)
-- TensorFlow / Keras (LSTM)
-- Google Colab (T4 GPU)
+- scikit-learn 
+- TensorFlow / Keras 
+  
 
 ---
 
