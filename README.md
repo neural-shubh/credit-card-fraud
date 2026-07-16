@@ -1,4 +1,8 @@
-## Live Dashboard
+# Credit Card Fraud Detection
+
+A machine learning project that compares classical ML models against a deep learning LSTM classifier for detecting fraudulent credit card transactions — with proper handling of extreme class imbalance.
+
+## 🖥️ Live Dashboard
 
 A real-time fraud monitoring dashboard powered by the LSTM model via a Flask API.
 
@@ -14,10 +18,6 @@ A real-time fraud monitoring dashboard powered by the LSTM model via a Flask API
 3. `!python app.py` → copy the ngrok URL
 4. Paste URL into `API_URL` in the dashboard HTML
 
-
-# Credit Card Fraud Detection
-
-A machine learning project that compares classical ML models against a deep learning LSTM classifier for detecting fraudulent credit card transactions — with proper handling of extreme class imbalance.
 
 ---
 
