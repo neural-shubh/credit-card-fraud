@@ -2,7 +2,7 @@
 
 A machine learning project that compares classical ML models against a deep learning LSTM classifier for detecting fraudulent credit card transactions — with proper handling of extreme class imbalance.
 
-## 🖥️ Live Dashboard
+## Live Dashboard
 
 A real-time fraud monitoring dashboard powered by the LSTM model via a Flask API.
 
