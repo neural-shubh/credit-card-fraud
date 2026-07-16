@@ -1,3 +1,20 @@
+## Live Dashboard
+
+A real-time fraud monitoring dashboard powered by the LSTM model via a Flask API.
+
+**To run locally:**
+1. Train the model and save it (`lstm_fraud_model.keras`)
+2. `pip install flask flask-cors`
+3. `python app.py`
+4. Open `dashboard/fraud_dashboard.html` in your browser
+
+**To run in Colab:**
+1. Upload `app.py` to Colab
+2. `!pip install flask flask-cors pyngrok -q`
+3. `!python app.py` → copy the ngrok URL
+4. Paste URL into `API_URL` in the dashboard HTML
+
+
 # Credit Card Fraud Detection
 
 A machine learning project that compares classical ML models against a deep learning LSTM classifier for detecting fraudulent credit card transactions — with proper handling of extreme class imbalance.
