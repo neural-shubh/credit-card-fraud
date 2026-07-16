@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FraudWatch — Live Transaction Monitor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0d12;
+    --surface: #111520;
+    --border: #1e2535;
+    --text: #e2e8f0;
+    --muted: #4a5568;
+    --accent: #3b82f6;
+    --fraud: #ef4444;
+    --safe: #22c55e;
+    --warn: #f59e0b;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--fraud);
+    box-shadow: 0 0 8px var(--fraud);
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .status-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--safe);
+    color: var(--safe);
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat {
+    background: var(--surface);
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-size: 26px;
+    font-weight: 600;
+    font-family: var(--mono);
+    letter-spacing: -0.02em;
+    transition: color 0.3s;
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── Main layout ── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── Feed ── */
+  .feed-panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+  }
+
+  .btn-start {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .btn-start:hover { opacity: 0.85; }
+
+  .btn-stop {
+    background: transparent;
+    color: var(--muted);
+  }
+
+  .btn-stop:hover { border-color: var(--muted); color: var(--text); }
+
+  .btn-clear {
+    background: transparent;
+    color: var(--muted);
+  }
+
+  .btn-clear:hover { border-color: var(--fraud); color: var(--fraud); }
+
+  .feed {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+    max-height: calc(100vh - 200px);
+  }
+
+  .feed::-webkit-scrollbar { width: 4px; }
+  .feed::-webkit-scrollbar-track { background: transparent; }
+  .feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .tx {
+    display: grid;
+    grid-template-columns: 80px 1fr 100px 80px 90px;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px;
+    animation: slideIn 0.25s ease;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .tx:hover { background: rgba(255,255,255,0.02); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .tx.fraud { border-left: 2px solid var(--fraud); background: rgba(239,68,68,0.04); }
+  .tx.safe  { border-left: 2px solid transparent; }
+
+  .tx-time { color: var(--muted); font-size: 11px; }
+  .tx-id   { color: var(--text); }
+  .tx-amount { text-align: right; }
+  .tx-amount.high { color: var(--warn); }
+
+  .tx-location { color: var(--muted); font-size: 11px; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+  }
+
+  .badge-fraud { background: rgba(239,68,68,0.15); color: var(--fraud); border: 1px solid rgba(239,68,68,0.3); }
+  .badge-safe  { background: rgba(34,197,94,0.1);  color: var(--safe);  border: 1px solid rgba(34,197,94,0.2); }
+
+  .feed-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    gap: 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  .feed-empty .icon { font-size: 32px; opacity: 0.3; }
+
+  /* ── Column headers ── */
+  .feed-cols {
+    display: grid;
+    grid-template-columns: 80px 1fr 100px 80px 90px;
+    gap: 12px;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* ── Mini chart ── */
+  .chart-wrap {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chart-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  canvas { width: 100% !important; }
+
+  /* ── Alert log ── */
+  .alert-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .alert-panel::-webkit-scrollbar { width: 4px; }
+  .alert-panel::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .alert-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    animation: slideIn 0.2s ease;
+  }
+
+  .alert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .alert-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fraud);
+  }
+
+  .alert-time {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .alert-detail {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .alert-amount {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--warn);
+    margin-top: 2px;
+  }
+
+  .no-alerts {
+    padding: 40px 20px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── Speed control ── */
+  .speed-wrap {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .speed-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  input[type=range] {
+    flex: 1;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .speed-val {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    width: 30px;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    FraudWatch
+  </div>
+  <div class="status-pill">● MONITORING</div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-label">Total Transactions</div>
+    <div class="stat-value" id="stat-total">0</div>
+    <div class="stat-sub">since session start</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Fraud Detected</div>
+    <div class="stat-value" id="stat-fraud" style="color:var(--fraud)">0</div>
+    <div class="stat-sub" id="stat-fraud-pct">0.00% of total</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Amount Flagged</div>
+    <div class="stat-value" id="stat-amount" style="color:var(--warn)">$0</div>
+    <div class="stat-sub">at risk</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Detection Rate</div>
+    <div class="stat-value" id="stat-rate" style="color:var(--safe)">—</div>
+    <div class="stat-sub">model confidence</div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Feed -->
+  <div class="feed-panel">
+    <div class="panel-header">
+      <span>Live Transaction Feed</span>
+      <div class="controls">
+        <button class="btn btn-start" id="btn-start" onclick="startFeed()">▶ Start</button>
+        <button class="btn btn-stop" id="btn-stop" onclick="stopFeed()" disabled>■ Pause</button>
+        <button class="btn btn-clear" onclick="clearFeed()">✕ Clear</button>
+      </div>
+    </div>
+    <div class="feed-cols">
+      <span>Time</span>
+      <span>Transaction ID</span>
+      <span style="text-align:right">Amount</span>
+      <span>Location</span>
+      <span>Status</span>
+    </div>
+    <div class="feed" id="feed">
+      <div class="feed-empty">
+        <div class="icon">⬡</div>
+        <span>Press Start to begin monitoring</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="panel-header">Fraud Alerts</div>
+
+    <div class="alert-panel" id="alert-panel">
+      <div class="no-alerts">No alerts yet</div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-title">Fraud detections / 10 txns</div>
+      <canvas id="chart" height="80"></canvas>
+    </div>
+
+    <div class="speed-wrap">
+      <span class="speed-label">SPEED</span>
+      <input type="range" min="1" max="5" value="2" id="speed" oninput="updateSpeed(this.value)"/>
+      <span class="speed-val" id="speed-val">2x</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Simulated data ───────────────────────────────────────────────────────────
+
+const LOCATIONS = ['Mumbai','Delhi','Bangalore','Chennai','Hyderabad','Kolkata','Pune','Jaipur','Dubai','Singapore','London','New York'];
+const MERCHANTS = ['POS Terminal','Online Store','ATM Withdrawal','Wire Transfer','Contactless Pay','Mobile Wallet','E-Commerce','Subscription'];
+
+let interval = null;
+let total = 0, fraudCount = 0, amountFlagged = 0;
+let running = false;
+let speedMs = 800;
+let chartBuckets = Array(12).fill(0);
+let bucketTxCount = 0;
+let bucketFraud = 0;
+let firstAlert = true;
+
+function randFloat(min, max) { return Math.random() * (max - min) + min; }
+function randInt(min, max)   { return Math.floor(randFloat(min, max + 1)); }
+function pick(arr)           { return arr[randInt(0, arr.length - 1)]; }
+
+function generateTransaction() {
+  // Simulate ~1.5% fraud rate for demo visibility
+  const isFraud = Math.random() < 0.015;
+  const amount  = isFraud
+    ? parseFloat(randFloat(800, 12000).toFixed(2))
+    : parseFloat(randFloat(5, 600).toFixed(2));
+  const confidence = isFraud
+    ? parseFloat(randFloat(0.72, 0.99).toFixed(2))
+    : parseFloat(randFloat(0.01, 0.18).toFixed(2));
+
+  return {
+    id: 'TXN' + Math.random().toString(36).substr(2,8).toUpperCase(),
+    amount,
+    location: pick(LOCATIONS),
+    merchant: pick(MERCHANTS),
+    isFraud,
+    confidence,
+    time: new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'}),
+  };
+}
+
+// ── Chart ────────────────────────────────────────────────────────────────────
+
+const ctx = document.getElementById('chart').getContext('2d');
+
+function drawChart() {
+  const canvas = document.getElementById('chart');
+  const w = canvas.offsetWidth;
+  const h = 80;
+  canvas.width  = w;
+  canvas.height = h;
+
+  const max = Math.max(...chartBuckets, 1);
+  const barW = (w - 24) / chartBuckets.length;
+  ctx.clearRect(0, 0, w, h);
+
+  chartBuckets.forEach((v, i) => {
+    const barH = (v / max) * (h - 16);
+    const x = 12 + i * barW;
+    const y = h - barH - 4;
+    ctx.fillStyle = v > 0 ? 'rgba(239,68,68,0.7)' : 'rgba(30,37,53,0.8)';
+    ctx.beginPath();
+    ctx.roundRect(x + 2, y, barW - 4, barH || 2, 2);
+    ctx.fill();
+  });
+}
+
+// ── Feed logic ───────────────────────────────────────────────────────────────
+
+function startFeed() {
+  if (running) return;
+  running = true;
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-stop').disabled  = false;
+
+  const feedEl = document.getElementById('feed');
+  const empty  = feedEl.querySelector('.feed-empty');
+  if (empty) empty.remove();
+
+  interval = setInterval(() => {
+    const tx = generateTransaction();
+    addTransaction(tx);
+  }, speedMs);
+}
+
+function stopFeed() {
+  running = false;
+  clearInterval(interval);
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-stop').disabled  = true;
+}
+
+function clearFeed() {
+  stopFeed();
+  document.getElementById('feed').innerHTML = '<div class="feed-empty"><div class="icon">⬡</div><span>Press Start to begin monitoring</span></div>';
+  document.getElementById('alert-panel').innerHTML = '<div class="no-alerts">No alerts yet</div>';
+  total = fraudCount = amountFlagged = 0;
+  bucketTxCount = bucketFraud = 0;
+  chartBuckets = Array(12).fill(0);
+  firstAlert = true;
+  updateStats();
+  drawChart();
+}
+
+function addTransaction(tx) {
+  total++;
+  bucketTxCount++;
+
+  if (tx.isFraud) {
+    fraudCount++;
+    amountFlagged += tx.amount;
+    bucketFraud++;
+    addAlert(tx);
+  }
+
+  // Update chart bucket every 10 txns
+  if (bucketTxCount >= 10) {
+    chartBuckets.push(bucketFraud);
+    if (chartBuckets.length > 12) chartBuckets.shift();
+    bucketTxCount = 0;
+    bucketFraud   = 0;
+    drawChart();
+  }
+
+  updateStats();
+
+  // Build row
+  const feedEl = document.getElementById('feed');
+  const row = document.createElement('div');
+  row.className = 'tx ' + (tx.isFraud ? 'fraud' : 'safe');
+  row.innerHTML = `
+    <span class="tx-time">${tx.time}</span>
+    <span class="tx-id">${tx.id}</span>
+    <span class="tx-amount ${tx.amount > 500 ? 'high' : ''}">$${tx.amount.toLocaleString()}</span>
+    <span class="tx-location">${tx.location}</span>
+    <span class="${tx.isFraud ? 'badge badge-fraud' : 'badge badge-safe'}">
+      ${tx.isFraud ? '⚠ FRAUD' : '✓ CLEAR'}
+    </span>
+  `;
+
+  feedEl.insertBefore(row, feedEl.firstChild);
+
+  // Keep max 120 rows
+  const rows = feedEl.querySelectorAll('.tx');
+  if (rows.length > 120) rows[rows.length - 1].remove();
+}
+
+function addAlert(tx) {
+  const panel = document.getElementById('alert-panel');
+  const noAlerts = panel.querySelector('.no-alerts');
+  if (noAlerts) noAlerts.remove();
+
+  const item = document.createElement('div');
+  item.className = 'alert-item';
+  item.innerHTML = `
+    <div class="alert-header">
+      <span class="alert-id">⚠ ${tx.id}</span>
+      <span class="alert-time">${tx.time}</span>
+    </div>
+    <div class="alert-detail">${tx.merchant} · ${tx.location}</div>
+    <div class="alert-detail">Confidence: ${(tx.confidence * 100).toFixed(0)}%</div>
+    <div class="alert-amount">$${tx.amount.toLocaleString()}</div>
+  `;
+  panel.insertBefore(item, panel.firstChild);
+
+  // Keep 30 alerts
+  const items = panel.querySelectorAll('.alert-item');
+  if (items.length > 30) items[items.length - 1].remove();
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent  = total.toLocaleString();
+  document.getElementById('stat-fraud').textContent  = fraudCount;
+  document.getElementById('stat-fraud-pct').textContent =
+    total > 0 ? ((fraudCount / total) * 100).toFixed(2) + '% of total' : '0.00% of total';
+  document.getElementById('stat-amount').textContent =
+    '$' + amountFlagged.toLocaleString(undefined, {maximumFractionDigits: 0});
+
+  const avgConf = fraudCount > 0 ? (85 + Math.random() * 10).toFixed(1) + '%' : '—';
+  document.getElementById('stat-rate').textContent = avgConf;
+}
+
+function updateSpeed(val) {
+  document.getElementById('speed-val').textContent = val + 'x';
+  speedMs = Math.round(1600 / val);
+  if (running) {
+    clearInterval(interval);
+    interval = setInterval(() => {
+      const tx = generateTransaction();
+      addTransaction(tx);
+    }, speedMs);
+  }
+}
+
+// Init chart
+drawChart();
+window.addEventListener('resize', drawChart);
+</script>
+</body>
+</html>
