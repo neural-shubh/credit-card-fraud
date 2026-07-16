@@ -460,6 +460,7 @@
 <script>
 // ── Simulated data ───────────────────────────────────────────────────────────
 
+const API_URL = 'https://5000-gpu-t4-s-kkb-usw4b2-11mlzmn15hoen-b.us-west4-2.prod.colab.dev';
 const LOCATIONS = ['Mumbai','Delhi','Bangalore','Chennai','Hyderabad','Kolkata','Pune','Jaipur','Dubai','Singapore','London','New York'];
 const MERCHANTS = ['POS Terminal','Online Store','ATM Withdrawal','Wire Transfer','Contactless Pay','Mobile Wallet','E-Commerce','Subscription'];
 
@@ -476,25 +477,36 @@ function randFloat(min, max) { return Math.random() * (max - min) + min; }
 function randInt(min, max)   { return Math.floor(randFloat(min, max + 1)); }
 function pick(arr)           { return arr[randInt(0, arr.length - 1)]; }
 
-function generateTransaction() {
-  // Simulate ~1.5% fraud rate for demo visibility
-  const isFraud = Math.random() < 0.015;
-  const amount  = isFraud
-    ? parseFloat(randFloat(800, 12000).toFixed(2))
-    : parseFloat(randFloat(5, 600).toFixed(2));
-  const confidence = isFraud
-    ? parseFloat(randFloat(0.72, 0.99).toFixed(2))
-    : parseFloat(randFloat(0.01, 0.18).toFixed(2));
+async function generateTransaction() {
+  const features = Array.from({length: 28}, () => parseFloat((Math.random() * 6 - 3).toFixed(4)));
+  features.push(parseFloat((Math.random() * 500).toFixed(2)));
 
-  return {
-    id: 'TXN' + Math.random().toString(36).substr(2,8).toUpperCase(),
-    amount,
-    location: pick(LOCATIONS),
-    merchant: pick(MERCHANTS),
-    isFraud,
-    confidence,
-    time: new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'}),
-  };
+  try {
+    const res = await fetch(`${API_URL}/predict`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ features })
+    });
+    const data = await res.json();
+    return {
+      id: 'TXN' + Math.random().toString(36).substr(2,8).toUpperCase(),
+      amount: features[28],
+      location: pick(LOCATIONS),
+      merchant: pick(MERCHANTS),
+      isFraud: data.fraud,
+      confidence: data.confidence,
+      time: new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'}),
+    };
+  } catch {
+    const isFraud = Math.random() < 0.015;
+    return {
+      id: 'TXN' + Math.random().toString(36).substr(2,8).toUpperCase(),
+      amount: parseFloat((isFraud ? Math.random()*12000+800 : Math.random()*600+5).toFixed(2)),
+      location: pick(LOCATIONS), merchant: pick(MERCHANTS),
+      isFraud, confidence: isFraud ? 0.85 : 0.05,
+      time: new Date().toLocaleTimeString('en-GB'),
+    };
+  }
 }
 
 // ── Chart ────────────────────────────────────────────────────────────────────
@@ -535,11 +547,10 @@ function startFeed() {
   const empty  = feedEl.querySelector('.feed-empty');
   if (empty) empty.remove();
 
-  interval = setInterval(() => {
-    const tx = generateTransaction();
-    addTransaction(tx);
-  }, speedMs);
-}
+  interval = setInterval(async () => {
+  const tx = await generateTransaction();
+  addTransaction(tx);
+}, speedMs);
 
 function stopFeed() {
   running = false;
